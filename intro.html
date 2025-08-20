@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summify - AI Note Summarizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0891b2', // Cool cyan
+                        secondary: '#06b6d4', // Bright cyan
+                        accent: '#67e8f9', // Light cyan
+                        dark: '#0f172a', // Deep slate
+                        light: '#f0f9ff', // Very light cyan
+                        slate: '#475569' // Cool gray
+                    },
+                    fontFamily: {
+                        'heading': ['Work Sans', 'sans-serif'],
+                        'body': ['Open Sans', 'sans-serif']
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'bounce-slow': 'bounce 2s infinite',
+                        'fade-in': 'fadeIn 0.8s ease-out',
+                        'slide-up': 'slideUp 0.6s ease-out',
+                        'scale-in': 'scaleIn 0.5s ease-out',
+                        'typing': 'typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite',
+                        'gradient': 'gradient 15s ease infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(50px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        scaleIn: {
+                            '0%': { opacity: '0', transform: 'scale(0.9)' },
+                            '100%': { opacity: '1', transform: 'scale(1)' }
+                        },
+                        typing: {
+                            'from': { width: '0' },
+                            'to': { width: '100%' }
+                        },
+                        'blink-caret': {
+                            'from, to': { 'border-color': 'transparent' },
+                            '50%': { 'border-color': '#0891b2' }
+                        },
+                        gradient: {
+                            '0%, 100%': { 'background-position': '0% 50%' },
+                            '50%': { 'background-position': '100% 50%' }
+                        }
+                    }
+                }
+            },
+            darkMode: 'class'
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Open Sans', sans-serif;
+            scroll-behavior: smooth;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .font-heading {
+            font-family: 'Work Sans', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+        }
+        
+        .gradient-animated {
+            background: linear-gradient(-45deg, #0891b2, #06b6d4, #0284c7, #0891b2);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+        }
+        
+        .hero-pattern {
+            background-color: #f0f9ff;
+            opacity: 0.9;
+            background-image: radial-gradient(#0891b2 0.75px, transparent 0.75px), radial-gradient(#0891b2 0.75px, #f0f9ff 0.75px);
+            background-size: 30px 30px;
+            background-position: 0 0, 15px 15px;
+        }
+        
+        .dark .hero-pattern {
+            background-color: #0f172a;
+            background-image: radial-gradient(#67e8f9 0.75px, transparent 0.75px), radial-gradient(#67e8f9 0.75px, #0f172a 0.75px);
+        }
+        
+        .card-hover {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 30px -5px rgba(8, 145, 178, 0.25);
+        }
+        
+        .dark .card-hover:hover {
+            box-shadow: 0 15px 30px -5px rgba(103, 232, 249, 0.3);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-primary:hover::before {
+            left: 100%;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(8, 145, 178, 0.3);
+        }
+        
+        .typing-demo {
+            overflow: hidden;
+            border-right: 3px solid #0891b2;
+            white-space: nowrap;
+            margin: 0 auto;
+            animation: typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite;
+        }
+        
+        .parallax {
+            transform: translateZ(0);
+            will-change: transform;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .dark .glass-effect {
+            background: rgba(26, 26, 46, 0.8);
+            border: 1px solid rgba(155, 89, 182, 0.2);
+        }
+        
+        .interactive-demo {
+            background: linear-gradient(145deg, #ffffff 0%, #f3e8ff 100%);
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        
+        .dark .interactive-demo {
+            background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+        }
+        
+        .stats-counter {
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .scroll-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 4px;
+            background: linear-gradient(90deg, #0891b2, #06b6d4);
+            z-index: 9999;
+            transition: width 0.1s ease;
+        }
+        
+        .note-text {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            line-height: 1.6;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        
+        .note-text::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .note-text::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .note-text::-webkit-scrollbar-thumb {
+            background: #0891b2;
+            border-radius: 2px;
+        }
+        
+        .dark .note-text::-webkit-scrollbar-thumb {
+            background: #67e8f9;
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+            color: white;
+        }
+        
+        .file-drop-zone {
+            transition: all 0.3s ease;
+        }
+        
+        .file-drop-zone.dragover {
+            border-color: #0891b2;
+            background-color: rgba(8, 145, 178, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-dark transition-colors duration-300">
+    <!-- Scroll Progress Indicator -->
+    <div class="scroll-indicator"></div>
+    
+    <!-- Navigation -->
+    <nav class="bg-white/90 dark:bg-dark/90 backdrop-blur-md shadow-lg fixed w-full z-50 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <div class="bg-primary p-2 rounded-lg transform hover:scale-110 transition-transform duration-300">
+                            <i class="fas fa-file-alt text-white text-2xl"></i>
+                        </div>
+                        <span class="ml-3 text-xl font-bold font-heading text-primary dark:text-secondary">Summify</span>
+                    </div>
+                    <div class="hidden md:ml-6 md:flex md:space-x-8">
+                        <a href="#features" class="text-slate dark:text-gray-300 hover:text-primary dark:hover:text-secondary px-3 py-2 font-medium font-body transition-colors duration-300">Features</a>
+                        <a href="#demo" class="text-slate dark:text-gray-300 hover:text-primary dark:hover:text-secondary px-3 py-2 font-medium font-body transition-colors duration-300">Live Demo</a>
+                        <a href="#how-it-works" class="text-slate dark:text-gray-300 hover:text-primary dark:hover:text-secondary px-3 py-2 font-medium font-body transition-colors duration-300">How It Works</a>
+                        <a href="#testimonials" class="text-slate dark:text-gray-300 hover:text-primary dark:hover:text-secondary px-3 py-2 font-medium font-body transition-colors duration-300">Testimonials</a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Dark Mode Toggle -->
+                    <button id="theme-toggle" class="p-2 rounded-lg bg-light dark:bg-slate text-primary dark:text-secondary hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-300">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:inline"></i>
+                    </button>
+                    <!-- Updated Get Started button to navigate to demo section -->
+                    <a href="#demo" class="btn-primary text-white px-4 py-2 rounded-md font-medium font-body">
+                        Get Started
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-pattern pt-32 pb-20 relative overflow-hidden">
+        <div class="absolute inset-0 gradient-animated opacity-10"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="flex flex-col md:flex-row items-center">
+                <div class="md:w-1/2 mb-10 md:mb-0 animate-fade-in">
+                    <h1 class="text-4xl md:text-6xl font-extrabold font-heading text-primary dark:text-secondary mb-6 leading-tight">
+                        Turn Lengthy Notes into 
+                        <span class="gradient-animated bg-clip-text text-transparent">Clear Summaries</span>
+                    </h1>
+                    <p class="text-lg font-body text-slate dark:text-gray-300 mb-8 leading-relaxed">
+                        Summify uses advanced AI to analyze your notes and extract the most important information, saving you time and improving comprehension with lightning-fast processing.
+                    </p>
+                    <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                        <!-- Updated Try It Now button to navigate to demo section -->
+                        <a href="#demo" class="btn-primary text-white px-8 py-4 rounded-lg font-semibold font-body shadow-lg transform hover:scale-105 transition-all duration-300 text-center">
+                            <i class="fas fa-rocket mr-2"></i>Try It Now
+                        </a>
+                        <button class="bg-white dark:bg-slate text-primary dark:text-secondary px-8 py-4 rounded-lg font-semibold font-body border-2 border-primary dark:border-secondary hover:bg-light dark:hover:bg-gray-700 transition-all duration-300 shadow">
+                            <i class="fas fa-play mr-2"></i>See Demo
+                        </button>
+                    </div>
+                    
+                    <!-- Stats Counter -->
+                    <div class="mt-12 grid grid-cols-3 gap-8">
+                        <div class="text-center">
+                            <div class="text-3xl font-bold font-heading text-primary dark:text-secondary stats-counter" data-target="50000">0</div>
+                            <div class="text-sm font-body text-slate dark:text-gray-400">Notes Processed</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold font-heading text-primary dark:text-secondary stats-counter" data-target="95">0</div>
+                            <div class="text-sm font-body text-slate dark:text-gray-400">Accuracy Rate</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-3xl font-bold font-heading text-primary dark:text-secondary stats-counter" data-target="10000">0</div>
+                            <div class="text-sm font-body text-slate dark:text-gray-400">Happy Users</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:w-1/2 flex justify-center animate-slide-up">
+                    <div class="relative w-full max-w-md">
+                        <div class="absolute -inset-4 gradient-bg rounded-2xl transform rotate-3 opacity-20 animate-float"></div>
+                        <div class="relative bg-white dark:bg-slate p-6 rounded-2xl shadow-2xl interactive-demo">
+                            <div class="mb-6">
+                                <h3 class="text-lg font-semibold font-heading text-primary dark:text-secondary mb-2">Original Note</h3>
+                                <p class="note-text text-slate dark:text-gray-300 text-sm bg-light dark:bg-gray-700 p-4 rounded-lg font-body">
+                                    The process of photosynthesis converts light energy into chemical energy. Plants use sunlight, water, and carbon dioxide to create oxygen and energy in the form of sugar. This process is essential for life on Earth as it provides the oxygen we breathe and the food we eat. Chlorophyll, the green pigment in plants, plays a crucial role in capturing light energy and converting it into chemical energy through a series of complex reactions.
+                                </p>
+                            </div>
+                            <div class="flex justify-center text-primary dark:text-secondary my-4">
+                                <div class="animate-bounce-slow">
+                                    <i class="fas fa-arrow-down text-xl"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold font-heading text-primary dark:text-secondary mb-2">AI Summary</h3>
+                                <p class="note-text text-slate dark:text-gray-200 font-medium bg-gradient-to-r from-light to-white dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg font-body leading-relaxed" style="max-height:120px;">
+                                    <span class="typing-demo" style="white-space:normal; display:block; border-right:0; animation:typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite;">
+                                        Photosynthesis converts light to chemical energy using sunlight, water, and CO2 to produce oxygen and sugar. Essential for life on Earth.
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Demo Section -->
+    <section id="demo" class="py-20 bg-gradient-to-br from-white to-light dark:from-dark dark:to-gray-900">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 animate-fade-in">
+                <h2 class="text-4xl font-extrabold font-heading text-primary dark:text-secondary mb-4">Try Summify Live</h2>
+                <p class="text-lg font-body text-slate dark:text-gray-300 max-w-3xl mx-auto">Experience the power of AI summarization in real-time. Upload files or paste your text below and watch the magic happen.</p>
+            </div>
+            
+            <div class="bg-white dark:bg-slate rounded-2xl shadow-2xl p-8 glass-effect">
+                <!-- Added file upload tabs for different input methods -->
+                <div class="mb-8">
+                    <div class="flex flex-wrap justify-center space-x-2 mb-6">
+                        <button id="text-tab" class="tab-btn active px-6 py-3 rounded-lg font-semibold font-body transition-all duration-300 bg-primary text-white">
+                            <i class="fas fa-keyboard mr-2"></i>Text Input
+                        </button>
+                        <button id="image-tab" class="tab-btn px-6 py-3 rounded-lg font-semibold font-body transition-all duration-300 bg-light dark:bg-gray-600 text-slate dark:text-gray-300 hover:bg-primary hover:text-white">
+                            <i class="fas fa-image mr-2"></i>Image Upload
+                        </button>
+                        <button id="pdf-tab" class="tab-btn px-6 py-3 rounded-lg font-semibold font-body transition-all duration-300 bg-light dark:bg-gray-600 text-slate dark:text-gray-300 hover:bg-primary hover:text-white">
+                            <i class="fas fa-file-pdf mr-2"></i>PDF Upload
+                        </button>
+                        <button id="doc-tab" class="tab-btn px-6 py-3 rounded-lg font-semibold font-body transition-all duration-300 bg-light dark:bg-gray-600 text-slate dark:text-gray-300 hover:bg-primary hover:text-white">
+                            <i class="fas fa-file-word mr-2"></i>DOC Upload
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Added different input panels for each file type -->
+                <div class="grid md:grid-cols-2 gap-8">
+                    <div>
+                        <!-- Text Input Panel -->
+                        <div id="text-panel" class="input-panel">
+                            <label class="block text-sm font-semibold font-body text-primary dark:text-secondary mb-2">Your Text</label>
+                            <textarea 
+                                id="input-text" 
+                                class="w-full h-48 p-4 border-2 border-light dark:border-gray-600 rounded-lg focus:border-primary dark:focus:border-secondary focus:ring-2 focus:ring-primary/20 dark:focus:ring-secondary/20 transition-all duration-300 bg-white dark:bg-gray-700 text-slate dark:text-gray-200 font-body resize-none"
+                                placeholder="Paste your lengthy text here and watch it transform into a concise summary..."
+                            ></textarea>
+                            <button class="mt-2 text-sm text-primary dark:text-secondary hover:underline font-body" id="sample-text-btn">
+                                Try Sample Text
+                            </button>
+                        </div>
+
+                        <!-- Image Upload Panel -->
+                        <div id="image-panel" class="input-panel hidden">
+                            <label class="block text-sm font-semibold font-body text-primary dark:text-secondary mb-2">Upload Image</label>
+                            <div class="file-drop-zone border-2 border-dashed border-light dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary dark:hover:border-secondary transition-all duration-300">
+                                <input type="file" id="image-input" accept="image/*" class="hidden">
+                                <div id="image-drop-zone" class="cursor-pointer">
+                                    <i class="fas fa-cloud-upload-alt text-4xl text-primary dark:text-secondary mb-4"></i>
+                                    <p class="text-slate dark:text-gray-300 font-body mb-2">Drag & drop an image here or click to browse</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 font-body">Supports JPG, PNG, GIF, WebP</p>
+                                </div>
+                                <div id="image-preview" class="hidden mt-4">
+                                    <img id="preview-img" class="max-w-full h-32 object-cover rounded-lg mx-auto">
+                                    <p id="image-name" class="text-sm text-slate dark:text-gray-300 mt-2 font-body"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PDF Upload Panel -->
+                        <div id="pdf-panel" class="input-panel hidden">
+                            <label class="block text-sm font-semibold font-body text-primary dark:text-secondary mb-2">Upload PDF</label>
+                            <div class="file-drop-zone border-2 border-dashed border-light dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary dark:hover:border-secondary transition-all duration-300">
+                                <input type="file" id="pdf-input" accept=".pdf" class="hidden">
+                                <div id="pdf-drop-zone" class="cursor-pointer">
+                                    <i class="fas fa-file-pdf text-4xl text-red-500 mb-4"></i>
+                                    <p class="text-slate dark:text-gray-300 font-body mb-2">Drag & drop a PDF here or click to browse</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 font-body">Maximum file size: 10MB</p>
+                                </div>
+                                <div id="pdf-preview" class="hidden mt-4">
+                                    <i class="fas fa-file-pdf text-2xl text-red-500"></i>
+                                    <p id="pdf-name" class="text-sm text-slate dark:text-gray-300 mt-2 font-body"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DOC Upload Panel -->
+                        <div id="doc-panel" class="input-panel hidden">
+                            <label class="block text-sm font-semibold font-body text-primary dark:text-secondary mb-2">Upload Document</label>
+                            <div class="file-drop-zone border-2 border-dashed border-light dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary dark:hover:border-secondary transition-all duration-300">
+                                <input type="file" id="doc-input" accept=".doc,.docx" class="hidden">
+                                <div id="doc-drop-zone" class="cursor-pointer">
+                                    <i class="fas fa-file-word text-4xl text-blue-500 mb-4"></i>
+                                    <p class="text-slate dark:text-gray-300 font-body mb-2">Drag & drop a Word document here or click to browse</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 font-body">Supports DOC, DOCX files</p>
+                                </div>
+                                <div id="doc-preview" class="hidden mt-4">
+                                    <i class="fas fa-file-word text-2xl text-blue-500"></i>
+                                    <p id="doc-name" class="text-sm text-slate dark:text-gray-300 mt-2 font-body"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Updated button to handle different input types -->
+                        <button 
+                            id="summarize-btn" 
+                            class="mt-4 w-full btn-primary text-white py-3 rounded-lg font-semibold font-body disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <i class="fas fa-magic mr-2"></i>Summarize Content
+                        </button>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold font-body text-primary dark:text-secondary mb-2">AI Summary</label>
+                        <div 
+                            id="output-text" 
+                            class="w-full h-48 p-4 border-2 border-light dark:border-gray-600 rounded-lg bg-gradient-to-br from-light to-white dark:from-gray-700 dark:to-gray-600 text-slate dark:text-gray-200 font-body overflow-y-auto"
+                        >
+                            <div class="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
+                                <i class="fas fa-robot text-2xl mr-2"></i>
+                                <span>Your summary will appear here...</span>
+                            </div>
+                        </div>
+                        <div id="summary-stats" class="mt-4 text-sm font-body text-slate dark:text-gray-400 hidden">
+                            <div class="flex justify-between">
+                                <span>Compression: <span id="compression-ratio" class="font-semibold text-primary dark:text-secondary">0%</span></span>
+                                <span>Processing: <span id="processing-time" class="font-semibold text-primary dark:text-secondary">0ms</span></span>
+                            </div>
+                            <div class="flex justify-between mt-2">
+                                <span>Original: <span id="original-length" class="font-semibold text-primary dark:text-secondary">0 words</span></span>
+                                <span>Summary: <span id="summary-length" class="font-semibold text-primary dark:text-secondary">0 words</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 bg-white dark:bg-dark">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 animate-fade-in">
+                <h2 class="text-4xl font-extrabold font-heading text-primary dark:text-secondary mb-4">Powerful Features</h2>
+                <p class="text-lg font-body text-slate dark:text-gray-300 max-w-3xl mx-auto">Summify offers a comprehensive suite of features designed to revolutionize how you process and understand information.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-light dark:bg-slate p-8 rounded-2xl card-hover animate-scale-in">
+                    <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl mb-6 transform hover:rotate-12 transition-transform duration-300">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <h3 class="text-xl font-bold font-heading text-primary dark:text-secondary mb-4">AI-Powered Analysis</h3>
+                    <p class="text-slate dark:text-gray-300 font-body leading-relaxed">Advanced neural networks identify key concepts, main ideas, and critical information with 95% accuracy.</p>
+                </div>
+                <div class="bg-light dark:bg-slate p-8 rounded-2xl card-hover animate-scale-in" style="animation-delay: 0.1s">
+                    <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl mb-6 transform hover:rotate-12 transition-transform duration-300">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h3 class="text-xl font-bold font-heading text-primary dark:text-secondary mb-4">Lightning Fast</h3>
+                    <p class="text-slate dark:text-gray-300 font-body leading-relaxed">Process documents of any size in seconds, not hours. Our optimized algorithms ensure instant results.</p>
+                </div>
+                <div class="bg-light dark:bg-slate p-8 rounded-2xl card-hover animate-scale-in" style="animation-delay: 0.2s">
+                    <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl mb-6 transform hover:rotate-12 transition-transform duration-300">
+                        <i class="fas fa-sliders-h"></i>
+                    </div>
+                    <h3 class="text-xl font-bold font-heading text-primary dark:text-secondary mb-4">Customizable Length</h3>
+                    <p class="text-slate dark:text-gray-300 font-body leading-relaxed">Choose from bullet points, short paragraphs, or detailed summaries based on your specific needs.</p>
+                </div>
+                <div class="bg-light dark:bg-slate p-8 rounded-2xl card-hover animate-scale-in" style="animation-delay: 0.3s">
+                    <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl mb-6 transform hover:rotate-12 transition-transform duration-300">
+                        <i class="fas fa-language"></i>
+                    </div>
+                    <h3 class="text-xl font-bold font-heading text-primary dark:text-secondary mb-4">Multi-Language Support</h3>
+                    <p class="text-slate dark:text-gray-300 font-body leading-relaxed">Summarize content in over 50 languages with native-level understanding and context preservation.</p>
+                </div>
+                <div class="bg-light dark:bg-slate p-8 rounded-2xl card-hover animate-scale-in" style="animation-delay: 0.4s">
+                    <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl mb-6 transform hover:rotate-12 transition-transform duration-300">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3 class="text-xl font-bold font-heading text-primary dark:text-secondary mb-4">Privacy First</h3>
+                    <p class="text-slate dark:text-gray-300 font-body leading-relaxed">Your data is processed securely and never stored. Complete privacy and confidentiality guaranteed.</p>
+                </div>
+                <div class="bg-light dark:bg-slate p-8 rounded-2xl card-hover animate-scale-in" style="animation-delay: 0.5s">
+                    <div class="w-16 h-16 gradient-bg rounded-2xl flex items-center justify-center text-white text-2xl mb-6 transform hover:rotate-12 transition-transform duration-300">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <h3 class="text-xl font-bold font-heading text-primary dark:text-secondary mb-4">Export Options</h3>
+                    <p class="text-slate dark:text-gray-300 font-body leading-relaxed">Export summaries in multiple formats: PDF, Word, Markdown, or plain text for seamless integration.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="py-20 gradient-animated">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 animate-fade-in">
+                <h2 class="text-4xl font-extrabold font-heading text-white mb-4">How It Works</h2>
+                <p class="text-lg font-body text-purple-100 max-w-3xl mx-auto">Transforming your notes into concise summaries is simple with our intuitive three-step process powered by cutting-edge AI.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="glass-effect p-8 rounded-2xl text-center card-hover">
+                    <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-white text-3xl mb-6 mx-auto transform hover:scale-110 transition-transform duration-300">
+                        <span class="font-bold font-heading">1</span>
+                    </div>
+                    <h3 class="text-2xl font-bold font-heading text-white mb-4">Upload Your Content</h3>
+                    <p class="text-purple-100 font-body leading-relaxed">Paste text, upload documents, or import from cloud storage. Support for PDF, Word, and plain text formats.</p>
+                </div>
+                <div class="glass-effect p-8 rounded-2xl text-center card-hover" style="animation-delay: 0.2s">
+                    <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-white text-3xl mb-6 mx-auto transform hover:scale-110 transition-transform duration-300">
+                        <span class="font-bold font-heading">2</span>
+                    </div>
+                    <h3 class="text-2xl font-bold font-heading text-white mb-4">AI Processing</h3>
+                    <p class="text-purple-100 font-body leading-relaxed">Our advanced algorithms analyze context, identify key themes, and extract the most important information intelligently.</p>
+                </div>
+                <div class="glass-effect p-8 rounded-2xl text-center card-hover" style="animation-delay: 0.4s">
+                    <div class="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center text-white text-3xl mb-6 mx-auto transform hover:scale-110 transition-transform duration-300">
+                        <span class="font-bold font-heading">3</span>
+                    </div>
+                    <h3 class="text-2xl font-bold font-heading text-white mb-4">Receive Summary</h3>
+                    <p class="text-purple-100 font-body leading-relaxed">Get your polished summary instantly, ready to use, share, or export in your preferred format.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section id="testimonials" class="py-20 bg-white dark:bg-dark">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 animate-fade-in">
+                <h2 class="text-4xl font-extrabold font-heading text-primary dark:text-secondary mb-4">What Users Say</h2>
+                <p class="text-lg font-body text-slate dark:text-gray-300 max-w-3xl mx-auto">Join thousands of students, researchers, and professionals who trust Summify to enhance their productivity and comprehension.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-light dark:bg-slate p-8 rounded-2xl card-hover animate-scale-in">
+                    <div class="flex items-center mb-6">
+                        <div class="w-16 h-16 gradient-bg rounded-full flex items-center justify-center text-white font-bold font-heading text-xl">JD</div>
+                        <div class="ml-4">
+                            <h4 class="font-bold font-heading text-primary dark:text-secondary">John Doe</h4>
+                            <p class="text-sm font-body text-slate dark:text-gray-400">Graduate Student</p>
+                            <div class="flex text-yellow-400 mt-1">
+                                <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-slate dark:text-gray-300 font-body leading-relaxed">"Summify has saved me countless hours when researching for my thesis. It quickly distills complex papers into digestible summaries that capture all the essential points."</p>
+                </div>
+                <div class="bg-light dark:bg-slate p-8 rounded-2xl card-hover animate-scale-in" style="animation-delay: 0.1s">
+                    <div class="flex items-center mb-6">
+                        <div class="w-16 h-16 gradient-bg rounded-full flex items-center justify-center text-white font-bold font-heading text-xl">AS</div>
+                        <div class="ml-4">
+                            <h4 class="font-bold font-heading text-primary dark:text-secondary">Anna Smith</h4>
+                            <p class="text-sm font-body text-slate dark:text-gray-400">Content Writer</p>
+                            <div class="flex text-yellow-400 mt-1">
+                                <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-slate dark:text-gray-300 font-body leading-relaxed">"I use Summify to quickly grasp the essence of long articles and reports. It's like having a research assistant available 24/7 that never gets tired."</p>
+                </div>
+                <div class="bg-light dark:bg-slate p-8 rounded-2xl card-hover animate-scale-in" style="animation-delay: 0.2s">
+                    <div class="flex items-center mb-6">
+                        <div class="w-16 h-16 gradient-bg rounded-full flex items-center justify-center text-white font-bold font-heading text-xl">MJ</div>
+                        <div class="ml-4">
+                            <h4 class="font-bold font-heading text-primary dark:text-secondary">Mike Johnson</h4>
+                            <p class="text-sm font-body text-slate dark:text-gray-400">Project Manager</p>
+                            <div class="flex text-yellow-400 mt-1">
+                                <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-slate dark:text-gray-300 font-body leading-relaxed">"Meeting notes that used to take me an hour to process now take minutes. Summify helps me focus on action items rather than getting lost in details."</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-20 gradient-animated relative overflow-hidden">
+        <div class="absolute inset-0 bg-black/20"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+            <div class="animate-fade-in">
+                <h2 class="text-4xl md:text-5xl font-extrabold font-heading text-white mb-6">Ready to Transform Your Note-Taking?</h2>
+                <p class="text-xl font-body text-purple-100 mb-12 max-w-4xl mx-auto leading-relaxed">Join thousands of students and professionals who are already using Summify to save time, improve comprehension, and boost productivity.</p>
+                <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6">
+                    <a href="#demo" class="bg-white text-primary px-10 py-4 rounded-lg font-bold font-body hover:bg-gray-100 transition-all duration-300 shadow-2xl transform hover:scale-105 flex items-center justify-center">
+                        <i class="fas fa-rocket mr-2"></i>Get Started for Free
+                    </a>
+                    <button class="bg-transparent border-2 border-white text-white px-10 py-4 rounded-lg font-bold font-body hover:bg-white hover:text-primary transition-all duration-300 transform hover:scale-105">
+                        <i class="fas fa-credit-card mr-2"></i>View Pricing
+                    </button>
+                </div>
+                <p class="text-sm font-body text-purple-200 mt-6">No credit card required • Free trial • Cancel anytime</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-dark dark:bg-black py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <div class="flex items-center mb-6">
+                        <div class="bg-primary p-2 rounded-lg">
+                            <i class="fas fa-file-alt text-white text-xl"></i>
+                        </div>
+                        <span class="ml-3 text-xl font-bold font-heading text-white">Summify</span>
+                    </div>
+                    <p class="text-gray-400 font-body leading-relaxed mb-4">Transforming lengthy notes into clear, concise summaries with cutting-edge AI technology.</p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-secondary transition-colors duration-300"><i class="fab fa-twitter fa-lg"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-secondary transition-colors duration-300"><i class="fab fa-facebook fa-lg"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-secondary transition-colors duration-300"><i class="fab fa-linkedin fa-lg"></i></a>
+                        <a href="#" class="text-gray-400 hover:text-secondary transition-colors duration-300"><i class="fab fa-instagram fa-lg"></i></a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold font-heading text-white mb-6">Product</h4>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Features</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Pricing</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Use Cases</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">API</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold font-heading text-white mb-6">Resources</h4>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Blog</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Tutorials</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Documentation</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Help Center</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold font-heading text-white mb-6">Company</h4>
+                    <ul class="space-y-3">
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">About</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Careers</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Privacy</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white font-body transition-colors duration-300">Terms</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 pt-8 text-center text-gray-400 font-body">
+                <p>© 2024 Summify. All rights reserved. Made with ❤️ for better productivity.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+    // Enhanced JavaScript functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        // Dark mode toggle
+        const themeToggle = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+        
+        // Check for saved theme preference or default to light mode
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        html.classList.toggle('dark', savedTheme === 'dark');
+        
+        themeToggle.addEventListener('click', function() {
+            html.classList.toggle('dark');
+            const isDark = html.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+        
+        // Scroll progress indicator
+        const scrollIndicator = document.querySelector('.scroll-indicator');
+        window.addEventListener('scroll', function() {
+            const scrollTop = window.pageYOffset;
+            const docHeight = document.body.offsetHeight - window.innerHeight;
+            const scrollPercent = (scrollTop / docHeight) * 100;
+            scrollIndicator.style.width = scrollPercent + '%';
+        });
+        
+        // Animated counters
+        const counters = document.querySelectorAll('.stats-counter');
+        const animateCounters = () => {
+            counters.forEach(counter => {
+                const target = parseInt(counter.getAttribute('data-target'));
+                const count = parseInt(counter.innerText);
+                const increment = target / 100;
+                
+                if (count < target) {
+                    counter.innerText = Math.ceil(count + increment);
+                    setTimeout(() => animateCounters(), 20);
+                } else {
+                    counter.innerText = target;
+                }
+            });
+        };
+        
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                    
+                    // Trigger counter animation when stats section is visible
+                    if (entry.target.querySelector('.stats-counter')) {
+                        animateCounters();
+                    }
+                }
+            });
+        }, observerOptions);
+        
+        // Observe all animated elements
+        document.querySelectorAll('.animate-fade-in, .animate-slide-up, .animate-scale-in').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            observer.observe(el);
+        });
+        
+        // Interactive demo functionality
+        const inputText = document.getElementById('input-text');
+        const outputText = document.getElementById('output-text');
+        const summarizeBtn = document.getElementById('summarize-btn');
+        const summaryStats = document.getElementById('summary-stats');
+        const compressionRatio = document.getElementById('compression-ratio');
+        const processingTime = document.getElementById('processing-time');
+        const originalLength = document.getElementById('original-length');
+        const summaryLength = document.getElementById('summary-length');
+        
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const inputPanels = document.querySelectorAll('.input-panel');
+        let currentInputType = 'text';
+        let currentFile = null;
+        
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Remove active class from all tabs
+                tabBtns.forEach(tab => {
+                    tab.classList.remove('active', 'bg-primary', 'text-white');
+                    tab.classList.add('bg-light', 'dark:bg-gray-600', 'text-slate', 'dark:text-gray-300');
+                });
+                
+                // Add active class to clicked tab
+                this.classList.add('active', 'bg-primary', 'text-white');
+                this.classList.remove('bg-light', 'dark:bg-gray-600', 'text-slate', 'dark:text-gray-300');
+                
+                // Hide all panels
+                inputPanels.forEach(panel => panel.classList.add('hidden'));
+                
+                // Show corresponding panel
+                const tabId = this.id.replace('-tab', '');
+                document.getElementById(tabId + '-panel').classList.remove('hidden');
+                currentInputType = tabId;
+                
+                // Update button text
+                const buttonTexts = {
+                    'text': 'Summarize Text',
+                    'image': 'Extract & Summarize',
+                    'pdf': 'Process PDF',
+                    'doc': 'Process Document'
+                };
+                summarizeBtn.innerHTML = `<i class="fas fa-magic mr-2"></i>${buttonTexts[tabId]}`;
+            });
+        });
+        
+        const setupFileUpload = (inputId, dropZoneId, previewId, nameId) => {
+            const input = document.getElementById(inputId);
+            const dropZone = document.getElementById(dropZoneId);
+            const dropZoneContainer = dropZone.closest('.file-drop-zone');
+            const preview = document.getElementById(previewId);
+            const nameElement = document.getElementById(nameId);
+            
+            dropZone.addEventListener('click', () => input.click());
+            
+            dropZoneContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZoneContainer.classList.add('dragover');
+            });
+            
+            dropZoneContainer.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZoneContainer.classList.remove('dragover');
+            });
+            
+            dropZoneContainer.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZoneContainer.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFileUpload(files[0], inputId, previewId, nameId);
+                }
+            });
+            
+            input.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0], inputId, previewId, nameId);
+                }
+            });
+        };
+        
+        const handleFileUpload = (file, inputId, previewId, nameId) => {
+            currentFile = file;
+            const preview = document.getElementById(previewId);
+            const nameElement = document.getElementById(nameId);
+            
+            nameElement.textContent = file.name;
+            preview.classList.remove('hidden');
+            
+            if (inputId === 'image-input' && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    document.getElementById('preview-img').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        
+        // Setup file uploads
+        setupFileUpload('image-input', 'image-drop-zone', 'image-preview', 'image-name');
+        setupFileUpload('pdf-input', 'pdf-drop-zone', 'pdf-preview', 'pdf-name');
+        setupFileUpload('doc-input', 'doc-drop-zone', 'doc-preview', 'doc-name');
+
+        // Summarize button functionality
+        summarizeBtn.addEventListener('click', function() {
+            let hasContent = false;
+            let formData = new FormData();
+
+            if (currentInputType === 'text') {
+                const text = inputText.value.trim();
+                hasContent = text.length > 0;
+                if (hasContent) {
+                    formData.append('text', text);
+                }
+            } else {
+                hasContent = currentFile !== null;
+                if (hasContent) {
+                    formData.append('file', currentFile);
+                }
+            }
+
+            if (!hasContent) {
+                alert(`Please ${currentInputType === 'text' ? 'enter some text' : 'upload a file'} to summarize!`);
+                return;
+            }
+
+            summarizeBtn.disabled = true;
+            summarizeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+            outputText.innerHTML = '<div class="flex items-center justify-center h-full"><i class="fas fa-spinner fa-spin text-2xl mr-2 text-primary"></i><span>Analyzing your content...</span></div>';
+            summaryStats.classList.add('hidden');
+
+            // Use Flask backend at port 5000
+            fetch('/api/summarize', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    outputText.innerHTML = `<p class="text-red-500">Error: ${data.error}</p>`;
+                } else {
+                    outputText.innerHTML = `<p class="leading-relaxed">${data.summary}</p>`;
+                    compressionRatio.textContent = `${data.compression_ratio}%`;
+                    processingTime.textContent = `${data.processing_time}ms`;
+                    originalLength.textContent = `${data.original_length} words`;
+                    summaryLength.textContent = `${data.summary_length} words`;
+                    summaryStats.classList.remove('hidden');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                outputText.innerHTML = '<p class="text-red-500">An error occurred while processing your request. Please make sure the server is running.</p>';
+            })
+            .finally(() => {
+                summarizeBtn.disabled = false;
+                const buttonTexts = {
+                    'text': 'Summarize Text',
+                    'image': 'Extract & Summarize',
+                    'pdf': 'Process PDF',
+                    'doc': 'Process Document'
+                };
+                summarizeBtn.innerHTML = `<i class="fas fa-magic mr-2"></i>${buttonTexts[currentInputType]}`;
+            });
+        });
+
+        // Add sample text functionality
+        const sampleTextBtn = document.getElementById('sample-text-btn');
+        if (sampleTextBtn) {
+            sampleTextBtn.addEventListener('click', function() {
+                // Fetch sample text from backend
+                fetch('/api/sample')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        inputText.value = data.sample;
+                    })
+                    .catch(error => {
+                        console.error('Error fetching sample text:', error);
+                        // Fallback to local sample texts
+                        const sampleTexts = [
+                            "Artificial intelligence (AI) is revolutionizing the way we work, live, and interact with technology. From machine learning algorithms that can predict consumer behavior to natural language processing systems that can understand and respond to human speech, AI is transforming industries across the globe. In healthcare, AI is being used to diagnose diseases more accurately and develop personalized treatment plans. In finance, AI algorithms are detecting fraud and making investment decisions. In transportation, autonomous vehicles powered by AI are becoming a reality. As AI continues to evolve, it promises to bring even more innovative solutions to complex problems, making our lives more efficient and productive.",
+                            "Climate change represents one of the most pressing challenges of our time, with far-reaching implications for ecosystems, human societies, and the global economy. Rising global temperatures, caused primarily by greenhouse gas emissions from human activities, are leading to more frequent and severe weather events, including hurricanes, droughts, and floods. The melting of polar ice caps and glaciers is contributing to rising sea levels, threatening coastal communities worldwide. To address this crisis, governments, businesses, and individuals must work together to reduce carbon emissions, transition to renewable energy sources, and implement sustainable practices. The Paris Agreement represents a significant step forward in global climate action, but much more needs to be done to limit global warming and protect our planet for future generations."
+                        ];
+                        inputText.value = sampleTexts[Math.floor(Math.random() * sampleTexts.length)];
+                    });
+            });
+        }
+
+        // Enhanced button interactions
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(button => {
+            button.addEventListener('mouseenter', function() {
+                if (!this.disabled) {
+                    this.style.transform = 'translateY(-2px) scale(1.02)';
+                }
+            });
+            
+            button.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0) scale(1)';
+            });
+            
+            button.addEventListener('mousedown', function() {
+                if (!this.disabled) {
+                    this.style.transform = 'translateY(0) scale(0.98)';
+                }
+            });
+            
+            button.addEventListener('mouseup', function() {
+                if (!this.disabled) {
+                    this.style.transform = 'translateY(-2px) scale(1.02)';
+                }
+            });
+        });
+        
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    const offsetTop = targetElement.offsetTop - 80;
+                    window.scrollTo({
+                        top: offsetTop,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+        
+        // Parallax effect for hero section
+        window.addEventListener('scroll', function() {
+            const scrolled = window.pageYOffset;
+            const parallaxElements = document.querySelectorAll('.parallax');
+            
+            parallaxElements.forEach(element => {
+                const speed = element.dataset.speed || 0.5;
+                element.style.transform = `translateY(${scrolled * speed}px)`;
+            });
+        });
+    });
+</script>
+</body>
+</html>
