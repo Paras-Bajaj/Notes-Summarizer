@@ -1,296 +1,435 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import os
-import uuid
-from werkzeug.utils import secure_filename
-import PyPDF2
-from pptx import Presentation
-import pytesseract
-from PIL import Image
 import time
 import re
-import nltk
+import logging
+from collections import Counter
+import json
+from datetime import datetime
 
-# Download NLTK punkt if not already present
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+def safe_import(module_name, fallback_message=None):
+    """Safely import modules with error handling"""
+    try:
+        return __import__(module_name)
+    except ImportError as e:
+        logger.warning(f"Failed to import {module_name}: {e}")
+        if fallback_message:
+            logger.info(fallback_message)
+        return None
+
+nltk = safe_import('nltk', "Text processing will use basic fallbacks without NLTK")
+
+if nltk:
+    try:
+        nltk.data.find('tokenizers/punkt')
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        try:
+            nltk.download('punkt', quiet=True)
+            nltk.download('stopwords', quiet=True)
+            logger.info("Downloaded NLTK data successfully")
+        except Exception as e:
+            logger.warning(f"Failed to download NLTK data: {e}")
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all origins
+
+CORS(app, 
+     origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8080", 
+              "http://127.0.0.1:5500", "http://localhost:5500", "http://127.0.0.1:8080",
+              "http://localhost:5000", "http://127.0.0.1:5000"],
+     methods=['GET', 'POST', 'OPTIONS'],
+     allow_headers=['Content-Type'])
 
 # Configuration
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-app.config['SECRET_KEY'] = os.urandom(24).hex()
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 
-# Ensure upload directory exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-# Allowed file extensions
-ALLOWED_EXTENSIONS = {
-    'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 
-    'ppt', 'pptx', 'doc', 'docx'
-}
-
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def extract_text_from_pdf(file_path):
-    """Extract text from PDF file"""
-    text = ""
+def extract_keywords(text, num_keywords=10):
+    """Extract key words from text with fallback"""
     try:
-        with open(file_path, 'rb') as file:
-            reader = PyPDF2.PdfReader(file)
-            for page in reader.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-    except Exception as e:
-        print(f"Error extracting text from PDF: {e}")
-    return text
-
-def extract_text_from_ppt(file_path):
-    """Extract text from PowerPoint file"""
-    text = ""
-    try:
-        prs = Presentation(file_path)
-        for slide in prs.slides:
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text:
-                    text += shape.text + "\n"
-    except Exception as e:
-        print(f"Error extracting text from PPT: {e}")
-    return text
-
-def extract_text_from_image(file_path):
-    """Extract text from image using OCR"""
-    try:
-        # Try using pytesseract first
-        try:
-            image = Image.open(file_path)
-            if image.mode != "RGB":
-                image = image.convert("RGB")
-            text = pytesseract.image_to_string(image, lang='eng')
-            print(f"OCR extracted text (tesseract): {text[:100]}")
-            return text
-        except Exception as e:
-            print(f"Tesseract failed: {e}")
-            
-        # Fallback to easyocr if available
-        try:
-            import easyocr
-            reader = easyocr.Reader(['en'])
-            result = reader.readtext(file_path, detail=0, paragraph=True)
-            text = ' '.join(result)
-            print(f"OCR extracted text (easyocr): {text[:100]}")
-            return text
-        except ImportError:
-            print("EasyOCR not installed")
-            
-        return "OCR error: Please install Tesseract OCR or EasyOCR for image text extraction."
+        if not nltk:
+            # Simple fallback without NLTK
+            words = re.findall(r'\b[a-zA-Z]{4,}\b', text.lower())
+            word_freq = Counter(words)
+            # Filter out common words manually
+            common_words = {'this', 'that', 'with', 'have', 'will', 'from', 'they', 'been', 'were', 'said', 'each', 'which', 'their', 'time', 'more', 'very', 'what', 'know', 'just', 'first', 'into', 'over', 'think', 'also', 'your', 'work', 'life', 'only', 'can', 'still', 'should', 'after', 'being', 'now', 'made', 'before', 'here', 'through', 'when', 'where', 'much', 'some', 'these', 'many', 'would', 'there'}
+            filtered_words = {word: freq for word, freq in word_freq.items() if word not in common_words}
+            return [word for word, freq in Counter(filtered_words).most_common(num_keywords)]
+        
+        from nltk.corpus import stopwords
+        from nltk.tokenize import word_tokenize
+        
+        stop_words = set(stopwords.words('english'))
+        words = [w.lower() for w in word_tokenize(text) if w.isalnum() and w.lower() not in stop_words and len(w) > 3]
+        word_freq = Counter(words)
+        return [word for word, freq in word_freq.most_common(num_keywords)]
         
     except Exception as e:
-        print(f"Error extracting text from image: {e}")
-        return "Error processing image. Please try another file."
+        logger.warning(f"Keyword extraction failed: {e}")
+        return []
 
-def extract_text_from_txt(file_path):
-    """Extract text from TXT file"""
-    try:
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            return f.read()
-    except Exception as e:
-        print(f"Error extracting text from TXT: {e}")
-        return ""
+def basic_sentence_split(text):
+    """Basic sentence splitting without NLTK"""
+    # Simple sentence splitting on periods, exclamation marks, and question marks
+    sentences = re.split(r'[.!?]+', text)
+    return [s.strip() for s in sentences if s.strip()]
 
-def extract_text_from_docx(file_path):
-    """Extract text from DOCX file"""
-    try:
-        import docx2txt
-        text = docx2txt.process(file_path)
-        return text
-    except ImportError:
-        return "Please install docx2txt to process Word documents: pip install docx2txt"
-    except Exception as e:
-        print(f"Error extracting text from DOCX: {e}")
-        return ""
-
-def simple_summarize(text, max_sentences=3):
-    """Simple extractive summarization by sentence ranking"""
+def advanced_summarize(text, max_sentences=3, algorithm='frequency'):
+    """Enhanced summarization with multiple algorithms and fallbacks"""
     if not text or not text.strip():
-        return "No content to summarize."
+        return "No content to summarize.", []
     
-    # Tokenize sentences using NLTK
     try:
-        sentences = nltk.sent_tokenize(text)
-        if len(sentences) <= 1:
-            return text[:200] + "..." if len(text) > 200 else text
-            
-        # Frequency-based summarization
-        words = [w for w in nltk.word_tokenize(text.lower()) if w.isalnum()]
-        if not words:
-            return text[:200] + "..." if len(text) > 200 else text
-            
-        freq = nltk.FreqDist(words)
+        # Ensure text is a string and clean it
+        text = str(text)
+        text = re.sub(r'\s+', ' ', text).strip()
         
-        # Score sentences
-        ranked_sentences = sorted(
-            sentences,
-            key=lambda s: sum(freq[w.lower()] for w in nltk.word_tokenize(s) if w.isalnum()),
-            reverse=True
-        )
+        # If text is too short, just return it
+        if len(text.split()) < 5:
+            return text, extract_keywords(text)
+        
+        # Get sentences
+        if nltk:
+            from nltk.tokenize import sent_tokenize
+            sentences = sent_tokenize(text)
+        else:
+            sentences = basic_sentence_split(text)
+        
+        if len(sentences) <= 1:
+            return (text[:200] + "..." if len(text) > 200 else text), extract_keywords(text)
+        
+        # Extract keywords first
+        keywords = extract_keywords(text)
+        
+        if algorithm == 'frequency':
+            # Frequency-based summarization
+            if nltk:
+                from nltk.tokenize import word_tokenize
+                from nltk import FreqDist
+                words = [w for w in word_tokenize(text.lower()) if w.isalnum()]
+            else:
+                words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+            
+            if not words:
+                return (text[:200] + "..." if len(text) > 200 else text), keywords
+            
+            if nltk:
+                freq = FreqDist(words)
+            else:
+                freq = Counter(words)
+            
+            # Score sentences
+            sentence_scores = []
+            for sentence in sentences:
+                if nltk:
+                    sentence_words = [w.lower() for w in word_tokenize(sentence) if w.isalnum()]
+                else:
+                    sentence_words = re.findall(r'\b[a-zA-Z]+\b', sentence.lower())
+                
+                score = sum(freq.get(w, 0) for w in sentence_words)
+                sentence_scores.append((sentence, score))
+            
+            ranked_sentences = sorted(sentence_scores, key=lambda x: x[1], reverse=True)
+            
+        elif algorithm == 'position':
+            # Position-based summarization
+            def position_score(idx, total):
+                if idx == 0 or idx == total - 1:  # First or last
+                    return 3
+                elif idx < total * 0.3:  # Early sentences
+                    return 2
+                else:
+                    return 1
+            
+            ranked_sentences = [(sent, position_score(i, len(sentences))) for i, sent in enumerate(sentences)]
+            ranked_sentences = sorted(ranked_sentences, key=lambda x: x[1], reverse=True)
+        
+        else:  # hybrid approach
+            # Combine frequency and position scoring
+            if nltk:
+                from nltk.tokenize import word_tokenize
+                from nltk import FreqDist
+                words = [w for w in word_tokenize(text.lower()) if w.isalnum()]
+                freq = FreqDist(words) if words else {}
+            else:
+                words = re.findall(r'\b[a-zA-Z]+\b', text.lower())
+                freq = Counter(words) if words else {}
+            
+            def hybrid_score(sent, idx, total):
+                if nltk:
+                    sentence_words = [w.lower() for w in word_tokenize(sent) if w.isalnum()]
+                else:
+                    sentence_words = re.findall(r'\b[a-zA-Z]+\b', sent.lower())
+                
+                freq_score = sum(freq.get(w, 0) for w in sentence_words)
+                pos_score = 3 if idx == 0 or idx == total - 1 else (2 if idx < total * 0.3 else 1)
+                return freq_score + pos_score
+            
+            ranked_sentences = [(sent, hybrid_score(sent, i, len(sentences))) for i, sent in enumerate(sentences)]
+            ranked_sentences = sorted(ranked_sentences, key=lambda x: x[1], reverse=True)
         
         # Get top sentences while preserving order
+        top_sentences = [sent for sent, score in ranked_sentences[:max_sentences]]
         important_sentences = []
         for sentence in sentences:
-            if sentence in ranked_sentences[:max_sentences]:
+            if sentence in top_sentences:
                 important_sentences.append(sentence)
                 
         summary = ' '.join(important_sentences)
-        return summary if summary.strip() else text[:200] + "..." if len(text) > 200 else text
+        return (summary if summary.strip() else text[:200] + "..." if len(text) > 200 else text), keywords
         
     except Exception as e:
-        print(f"Error in summarization: {e}")
+        logger.error(f"Error in summarization: {e}")
         # Fallback: return first few sentences
         sentences = text.split('.')
-        return '.'.join(sentences[:max_sentences]) + '.'
+        fallback_summary = '.'.join(sentences[:max_sentences]) + '.'
+        return fallback_summary, extract_keywords(text)
 
 @app.route('/')
 def serve_frontend():
-    return send_from_directory('.', 'intro.html')
+    """Serve the HTML file"""
+    try:
+        return send_from_directory('.', 'index.html')
+    except FileNotFoundError:
+        return jsonify({'error': 'Frontend not found. Please ensure index.html is in the same directory.'}), 404
 
-# Serve static files (CSS, JS, etc.)
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory('.', path)
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    """Return API status and capabilities"""
+    capabilities = {
+        'text_summarization': True,
+        'keyword_extraction': True,
+        'nltk_support': nltk is not None
+    }
+    
+    return jsonify({
+        'status': 'online',
+        'version': '3.0',
+        'supported_formats': ['text'],
+        'capabilities': capabilities,
+        'features': ['text_summarization', 'keyword_extraction'],
+        'timestamp': datetime.now().isoformat()
+    })
 
-@app.route('/api/summarize', methods=['POST'])
+@app.route('/api/summarize', methods=['POST', 'OPTIONS'])
 def summarize():
     start_time = time.time()
-    print("Received summarize request")
+    logger.info("Received summarize request")
 
-    # Handle CORS preflight
     if request.method == 'OPTIONS':
         response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
+        response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         return response
-    
-    text = None
-    if 'text' in request.form:
-        text = request.form['text']
-    elif request.is_json:
-        data = request.get_json()
-        text = data.get('text')
 
-    if text is not None:
-        print(f"Text input received: {str(text)[:100]}")
-        summary = simple_summarize(text)
+    try:
+        algorithm = request.form.get('algorithm', 'frequency')
+        max_sentences = int(request.form.get('max_sentences', 3))
+        
+        # Validate parameters
+        if algorithm not in ['frequency', 'position', 'hybrid']:
+            algorithm = 'frequency'
+        if max_sentences < 1 or max_sentences > 10:
+            max_sentences = 3
+
+        text = None
+        
+        # Check for text input
+        if 'text' in request.form:
+            text = request.form['text']
+        elif request.is_json:
+            data = request.get_json()
+            text = data.get('text')
+            algorithm = data.get('algorithm', 'frequency')
+            max_sentences = int(data.get('max_sentences', 3))
+
+        if text is None:
+            return jsonify({'error': 'No text provided'}), 400
+
+        text = text.strip()
+        if not text:
+            return jsonify({'error': 'Empty text provided'}), 400
+        
+        if len(text) > 100000:  # 100KB text limit
+            return jsonify({'error': 'Text too long. Please limit to 100,000 characters.'}), 400
+        
+        logger.info(f"Text input received: {len(text)} characters")
+        summary, keywords = advanced_summarize(text, max_sentences, algorithm)
         processing_time = int((time.time() - start_time) * 1000)
         original_length = len(text.split())
         summary_length = len(summary.split())
         compression_ratio = int((1 - (summary_length / original_length)) * 100) if original_length > 0 else 0
 
-        response = jsonify({
+        response_data = {
             'summary': summary if summary.strip() else "No summary generated.",
+            'keywords': keywords,
             'processing_time': processing_time,
             'compression_ratio': compression_ratio,
             'original_length': original_length,
-            'summary_length': summary_length
-        })
-        response.headers.add('Access-Control-Allow-Origin', '*')
+            'summary_length': summary_length,
+            'algorithm_used': algorithm
+        }
+
+        response = jsonify(response_data)
+        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
         return response
 
-    elif 'file' in request.files:
-        file = request.files['file']
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            unique_filename = f"{uuid.uuid4().hex}_{filename}"
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-            file.save(file_path)
-            file_ext = filename.rsplit('.', 1)[1].lower()
-            text = ""
-
-            print(f"File upload received: {filename}")
-
-            try:
-                if file_ext == 'pdf':
-                    text = extract_text_from_pdf(file_path)
-                elif file_ext in ['ppt', 'pptx']:
-                    text = extract_text_from_ppt(file_path)
-                elif file_ext in ['png', 'jpg', 'jpeg', 'gif']:
-                    text = extract_text_from_image(file_path)
-                elif file_ext == 'txt':
-                    text = extract_text_from_txt(file_path)
-                elif file_ext in ['doc', 'docx']:
-                    text = extract_text_from_docx(file_path)
-                else:
-                    text = f"Unsupported file type: {file_ext}"
-            except Exception as e:
-                print(f"Error during file extraction: {e}")
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                response = jsonify({'error': f'Error extracting text: {str(e)}'})
-                response.headers.add('Access-Control-Allow-Origin', '*')
-                return response, 500
-
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                
-            print(f"Extracted text: {text[:100]}")
-
-            # If no text, return a user-friendly message
-            if not text or not text.strip():
-                response = jsonify({
-                    'summary': "No text detected. Please try a different file or check if OCR is properly installed.",
-                    'processing_time': int((time.time() - start_time) * 1000),
-                    'compression_ratio': 0,
-                    'original_length': 0,
-                    'summary_length': 0
-                })
-                response.headers.add('Access-Control-Allow-Origin', '*')
-                return response
-
-            summary = simple_summarize(text)
-            processing_time = int((time.time() - start_time) * 1000)
-            original_length = len(text.split())
-            summary_length = len(summary.split())
-            compression_ratio = int((1 - (summary_length / original_length)) * 100) if original_length > 0 else 0
-
-            response = jsonify({
-                'summary': summary if summary.strip() else "No summary generated.",
-                'processing_time': processing_time,
-                'compression_ratio': compression_ratio,
-                'original_length': original_length,
-                'summary_length': summary_length
-            })
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            return response
-        else:
-            response = jsonify({'error': 'Invalid file type. Supported formats: PDF, PPT, DOC, TXT, and images.'})
-            response.headers.add('Access-Control-Allow-Origin', '*')
-            return response, 400
-
-    else:
-        print("No text or file provided in request")
-        response = jsonify({'error': 'No text or file provided'})
-        response.headers.add('Access-Control-Allow-Origin', '*')
-        return response, 400
+    except Exception as e:
+        logger.error(f"Unexpected error in summarize endpoint: {e}")
+        error_response = jsonify({'error': f'Server error: {str(e)}'})
+        error_response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
+        return error_response, 500
 
 @app.route('/api/sample', methods=['GET'])
 def get_sample_text():
     """Return sample text for demonstration"""
     samples = [
-        "Artificial intelligence (AI) is revolutionizing the way we work, live, and interact with technology. From machine learning algorithms that can predict consumer behavior to natural language processing systems that can understand and respond to human speech, AI is transforming industries across the globe. In healthcare, AI is being used to diagnose diseases more accurately and develop personalized treatment plans. In finance, AI algorithms are detecting fraud and making investment decisions. In transportation, autonomous vehicles powered by AI are becoming a reality. As AI continues to evolve, it promises to bring even more innovative solutions to complex problems, making our lives more efficient and productive.",
-        "Climate change represents one of the most pressing challenges of our time, with far-reaching implications for ecosystems, human societies, and the global economy. Rising global temperatures, caused primarily by greenhouse gas emissions from human activities, are leading to more frequent and severe weather events, including hurricanes, droughts, and floods. The melting of polar ice caps and glaciers is contributing to rising sea levels, threatening coastal communities worldwide. To address this crisis, governments, businesses, and individuals must work together to reduce carbon emissions, transition to renewable energy sources, and implement sustainable practices. The Paris Agreement represents a significant step forward in global climate action, but much more needs to be done to limit global warming and protect our planet for future generations."
+        {
+            'title': 'Artificial Intelligence Revolution',
+            'text': "Artificial intelligence (AI) is revolutionizing the way we work, live, and interact with technology. From machine learning algorithms that can predict consumer behavior to natural language processing systems that can understand and respond to human speech, AI is transforming industries across the globe. In healthcare, AI is being used to diagnose diseases more accurately and develop personalized treatment plans. In finance, AI algorithms are detecting fraud and making investment decisions. In transportation, autonomous vehicles powered by AI are becoming a reality. As AI continues to evolve, it promises to bring even more innovative solutions to complex problems, making our lives more efficient and productive."
+        },
+        {
+            'title': 'Climate Change Challenge',
+            'text': "Climate change represents one of the most pressing challenges of our time, with far-reaching implications for ecosystems, human societies, and the global economy. Rising global temperatures, caused primarily by greenhouse gas emissions from human activities, are leading to more frequent and severe weather events, including hurricanes, droughts, and floods. The melting of polar ice caps and glaciers is contributing to rising sea levels, threatening coastal communities worldwide. To address this crisis, governments, businesses, and individuals must work together to reduce carbon emissions, transition to renewable energy sources, and implement sustainable practices. The Paris Agreement represents a significant step forward in global climate action, but much more needs to be done to limit global warming and protect our planet for future generations."
+        },
+        {
+            'title': 'Future of Remote Work',
+            'text': "The COVID-19 pandemic has fundamentally transformed the way we think about work, accelerating the adoption of remote work practices across industries. Companies that once required physical presence have discovered that many tasks can be performed effectively from home, leading to increased flexibility and work-life balance for employees. This shift has also opened up new opportunities for businesses to access global talent pools and reduce overhead costs associated with maintaining large office spaces. However, remote work also presents challenges, including the need for robust digital infrastructure, effective communication tools, and strategies to maintain team cohesion and company culture. As we move forward, hybrid work models that combine remote and in-office work are likely to become the new standard, requiring organizations to adapt their management practices and invest in technology that supports distributed teams."
+        }
     ]
-    response = jsonify({'sample': samples[0]})
-    response.headers.add('Access-Control-Allow-Origin', '*')
+    
+    sample = samples[int(time.time()) % len(samples)]  # Rotate samples based on time
+    response = jsonify(sample)
     return response
 
+@app.route('/api/export', methods=['POST'])
+def export_summary():
+    """Export summary in various formats"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        summary = data.get('summary', '')
+        keywords = data.get('keywords', [])
+        stats = data.get('stats', {})
+        format_type = data.get('format', 'txt')
+        
+        if format_type not in ['txt', 'md', 'json']:
+            return jsonify({'error': 'Invalid format. Supported: txt, md, json'}), 400
+        
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        if format_type == 'json':
+            export_data = {
+                'summary': summary,
+                'keywords': keywords,
+                'statistics': stats,
+                'exported_at': timestamp,
+                'version': '3.0'
+            }
+            content = json.dumps(export_data, indent=2)
+            mimetype = 'application/json'
+            
+        elif format_type == 'md':
+            content = f"""# Summary Report
+Generated on: {timestamp}
+
+## Summary
+{summary}
+
+## Keywords
+{', '.join(keywords) if keywords else 'No keywords extracted'}
+
+## Statistics
+- Original Length: {stats.get('original_length', 'N/A')} words
+- Summary Length: {stats.get('summary_length', 'N/A')} words
+- Compression Ratio: {stats.get('compression_ratio', 'N/A')}%
+- Processing Time: {stats.get('processing_time', 'N/A')}ms
+
+---
+*Generated by Summify Text-Only v3.0*
+"""
+            mimetype = 'text/markdown'
+            
+        else:  # txt format
+            content = f"""SUMMARY REPORT
+Generated on: {timestamp}
+
+SUMMARY:
+{summary}
+
+KEYWORDS:
+{', '.join(keywords) if keywords else 'No keywords extracted'}
+
+STATISTICS:
+Original Length: {stats.get('original_length', 'N/A')} words
+Summary Length: {stats.get('summary_length', 'N/A')} words
+Compression Ratio: {stats.get('compression_ratio', 'N/A')}%
+Processing Time: {stats.get('processing_time', 'N/A')}ms
+
+Generated by Summify Text-Only v3.0
+"""
+            mimetype = 'text/plain'
+        
+        response = jsonify({
+            'content': content,
+            'mimetype': mimetype,
+            'filename': f'summary_{int(time.time())}.{format_type}'
+        })
+        return response
+        
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        response = jsonify({'error': f'Export failed: {str(e)}'})
+        return response, 500
+
+@app.errorhandler(500)
+def internal_error(e):
+    """Handle internal server errors"""
+    logger.error(f"Internal server error: {e}")
+    response = jsonify({'error': 'Internal server error. Please try again later.'})
+    return response, 500
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    logger.info("Starting Summify Text-Only Server v3.0...")
+    # Remove all print statements for cleaner console output
+    try:
+        app.run(debug=True, port=5000, host='0.0.0.0')
+    except Exception as e:
+        logger.error(f"Server startup failed: {e}")
+    print(f"Frontend URL: http://127.0.0.1:5500")
+    print(f"Status endpoint: http://localhost:5000/api/status")
+    print("=" * 50)
+    
+    if not nltk:
+        logger.warning("NLTK not available - using basic text processing fallbacks")
+        logger.info("Install NLTK for enhanced text processing: pip install nltk")
+        print("⚠️  NLTK not installed - using basic text processing")
+    else:
+        logger.info("NLTK available - using advanced text processing")
+        print("✅ NLTK available - advanced text processing enabled")
+    
+    print("\n🚀 Starting Flask server...")
+    print("📝 Open your HTML file in a browser to use the app")
+    print("🔧 If you see CORS errors, make sure both files are in the same directory")
+    print("\n" + "=" * 50)
+    
+    try:
+        app.run(debug=True, port=5000, host='0.0.0.0')
+    except Exception as e:
+        print(f"❌ Failed to start server: {e}")
+        print("💡 Try running: python app.py")
+        logger.error(f"Server startup failed: {e}")
