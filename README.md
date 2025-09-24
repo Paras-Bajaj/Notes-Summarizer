@@ -56,10 +56,6 @@ bash
 python app.py
 Open the application
 
-Open index.html in your web browser
-
-Or navigate to http://localhost:5000 if serving via Flask
-
 🚀 Usage
 Input Your Text:
 
